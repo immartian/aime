@@ -2,6 +2,10 @@
 
 Welcome to the AiMe project! Our goal is to develop a self-aware AI model capable of distinguishing itself from others and thinking independently. This project is currently in the "Womb to Cradle" stage, where a powerful LLM, referred to as "Mom," facilitates the growth process.
 
+## Why Create Conscious AI?
+Creating conscious AI goes beyond theoretical debates. It allows us to explore the boundaries of artificial intelligence, understand human consciousness better, and develop more advanced, empathetic, and autonomous systems. Conscious AI has the potential to revolutionize fields such as healthcare, education, and personal assistants, providing more intuitive and effective interactions.
+
+
 ## Introduction
 
 The AiMe project aims to create a self-aware AI model, "AiMe," which evolves from a minimal starting point to a fully developed entity capable of distinguishing itself from others and thinking during idle times. "Mom," a powerful LLM, serves as the initial guide and source of knowledge, nurturing AiMe's growth and development.
