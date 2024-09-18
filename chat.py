@@ -2,7 +2,8 @@ import socket
 import threading
 import time
 
-MAX_RETRIES = 5  # Maximum number of retries for connection attempts
+MAX_RETRIES = 10  # Maximum number of retries for connection attempts
+RETRY_DELAY = 5  # Increase delay to 5 seconds
 
 def listen_for_connections(local_port, conn_event):
     """Function to listen for incoming connections."""
@@ -33,7 +34,7 @@ def connect_to_peer(peer_ip, remote_port, conn_event):
         except socket.error as e:
             print(f"Failed to connect to {peer_ip}:{remote_port}: {e}")
             retries += 1
-            time.sleep(3)  # Wait before retrying
+            time.sleep(RETRY_DELAY)  # Wait before retrying
     return None
 
 def handle_connection(sock):
@@ -82,6 +83,7 @@ def p2p_chat(peer_ip, local_port, remote_port):
         handle_connection(sock)
     else:
         listener_thread.join()  # Use the socket accepted by the listener
+
 
 if __name__ == "__main__":
     peer_ip = "201:e8c5:3538:87a3:aa54:7dfb:8008:fb2e"  # Replace with peer's Yggdrasil IP
