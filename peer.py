@@ -93,10 +93,11 @@ class PeerManager:
         while True:
             conn, addr = server.accept()
             print(f"Connected by {addr}")
-            threading.Thread(target=self.handle_incoming_message, args=(conn,)).start()
+            threading.Thread(target=self.handle_incoming_message, args=(conn, addr)).start()
 
-    def handle_incoming_message(self, conn):
-        """Handle incoming messages."""
+    def handle_incoming_message(self, conn, addr):
+        """Handle incoming messages and keep peer available after disconnection."""
+        peer_ip = addr[0]  # Extract peer IP
         while True:
             message = conn.recv(1024).decode('utf-8')
             if not message:
@@ -107,8 +108,11 @@ class PeerManager:
             # If there's a callback, invoke it with the received message
             if self.message_callback:
                 self.message_callback(message)
-                
+        
         conn.close()
+        
+        # After the connection closes, set peer status back to available
+        self.update_peer_status(peer_ip, 'available')
 
     def set_message_callback(self, callback):
         """Set the callback function to handle incoming messages."""
@@ -132,4 +136,3 @@ class PeerManager:
 
         # Broadcast status updates in the background
         threading.Thread(target=self.broadcast_status_updates, daemon=True).start()
-
