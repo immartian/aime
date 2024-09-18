@@ -8,6 +8,8 @@ class PeerManager:
         self.local_port = local_port
         self.status_port = status_port
         self.lock = threading.Lock()  # To prevent race conditions when updating peer status
+        self.continue_chat = True  # Control the continuous chat loop
+        self.message_callback = None  # Placeholder for message callback function
     
     def add_peer(self, peer_ip, chat_port):
         """Add a new peer to the manager."""
@@ -17,12 +19,6 @@ class PeerManager:
                 'status': 'unknown'
             }
     
-    def remove_peer(self, peer_ip):
-        """Remove a peer from the manager."""
-        with self.lock:
-            if peer_ip in self.peers:
-                del self.peers[peer_ip]
-
     def update_peer_status(self, peer_ip, status):
         """Update the status of a peer."""
         with self.lock:
@@ -107,12 +103,33 @@ class PeerManager:
                 print("Connection closed.")
                 break
             print(f"Received message: {message}")
+            
+            # If there's a callback, invoke it with the received message
+            if self.message_callback:
+                self.message_callback(message)
+                
         conn.close()
 
+    def set_message_callback(self, callback):
+        """Set the callback function to handle incoming messages."""
+        self.message_callback = callback
+
+    def continuous_chat(self, peer_ip):
+        """Initiate a continuous chat loop with a peer."""
+        while self.continue_chat:
+            message = input("You: ")  # Get message from user
+            if message.lower() == 'quit':
+                print("Exiting chat...")
+                self.continue_chat = False
+                break
+            self.send_message(peer_ip, message)  # Send message to peer
+
     def start(self):
+        """Start the Peer Manager's background services."""
         # Start the status server and chat server
         threading.Thread(target=self.start_status_server, daemon=True).start()
         threading.Thread(target=self.start_chat_server, daemon=True).start()
 
         # Broadcast status updates in the background
         threading.Thread(target=self.broadcast_status_updates, daemon=True).start()
+
