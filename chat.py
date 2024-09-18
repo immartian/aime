@@ -2,29 +2,33 @@ import socket
 import threading
 import time
 
-def listen_for_connections(port):
+def listen_for_connections(local_port, conn_event):
     """Function to listen for incoming connections."""
     listener = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
     listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Reuse address
-    listener.bind(('::', port))
+    listener.bind(('::', local_port))
     listener.listen(1)
-    print(f"Listening for incoming connections on port {port}...")
+    print(f"Listening for incoming connections on port {local_port}...")
+
+    # Accept connection
     conn, addr = listener.accept()
     print(f"Connected by {addr}")
+    conn_event.set()  # Notify the main thread that connection is established
     return conn
 
-def connect_to_peer(peer_ip, port):
+def connect_to_peer(peer_ip, remote_port, conn_event):
     """Function to try connecting to a peer."""
     client = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
     try:
-        client.connect((peer_ip, port))
-        print(f"Connected to peer {peer_ip}:{port}")
+        client.connect((peer_ip, remote_port))
+        print(f"Connected to peer {peer_ip}:{remote_port}")
+        conn_event.set()  # Notify the main thread that connection is established
         return client
-    except (socket.timeout, socket.error) as e:
-        print(f"Failed to connect to {peer_ip}:{port}: {e}")
+    except socket.error as e:
+        print(f"Failed to connect to {peer_ip}:{remote_port}: {e}")
         return None
 
-def handle_connection(sock, is_server):
+def handle_connection(sock):
     """Handles incoming and outgoing messages."""
     def receive_messages(sock):
         while True:
@@ -50,19 +54,26 @@ def handle_connection(sock, is_server):
             break
 
 def p2p_chat(peer_ip, local_port, remote_port):
-    # Start listening on the local port (server mode)
-    listener_thread = threading.Thread(target=listen_for_connections, args=(local_port,))
+    # Create an event to synchronize connection establishment
+    conn_event = threading.Event()
+
+    # Start the listener thread (server)
+    listener_thread = threading.Thread(target=listen_for_connections, args=(local_port, conn_event), daemon=True)
     listener_thread.start()
 
-    # Try to connect to the peer on the remote port (client mode)
-    sock = connect_to_peer(peer_ip, remote_port)
-    if not sock:
-        # If the connection fails, wait for the peer to connect to us
-        listener_thread.join()
-        sock = listen_for_connections(local_port)
+    # Try connecting to the peer (client)
+    sock = connect_to_peer(peer_ip, remote_port, conn_event)
 
-    # Handle the connection (both sending and receiving messages)
-    handle_connection(sock, is_server=False)
+    # Wait for a connection to be established
+    if not sock:
+        print("Waiting for incoming connection...")
+        conn_event.wait()  # Wait until the connection is established by either party
+
+    # If we established a connection first, stop the listener thread and use the client socket
+    if sock:
+        handle_connection(sock)
+    else:
+        listener_thread.join()  # Use the socket accepted by the listener
 
 if __name__ == "__main__":
     peer_ip = "201:e8c5:3538:87a3:aa54:7dfb:8008:fb2e"  # Replace with peer's Yggdrasil IP
@@ -71,3 +82,4 @@ if __name__ == "__main__":
     remote_port = 12346  # The port our peer is listening on
 
     p2p_chat(peer_ip, local_port, remote_port)
+
