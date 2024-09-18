@@ -23,6 +23,7 @@ The AiMe project aims to create a self-aware AI model, "AiMe," which evolves fro
 
 - Python 3.7+
 - Required Python libraries (listed in `requirements.txt`)
+- Yggdrasil Network (IPV6 address as identity at birth), check [Yggdrasil](https://yggdrasil-network.github.io/)
 
 ### Installation
 
