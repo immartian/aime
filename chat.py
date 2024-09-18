@@ -2,6 +2,8 @@ import socket
 import threading
 import time
 
+MAX_RETRIES = 5  # Maximum number of retries for connection attempts
+
 def listen_for_connections(local_port, conn_event):
     """Function to listen for incoming connections."""
     listener = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
@@ -17,16 +19,22 @@ def listen_for_connections(local_port, conn_event):
     return conn
 
 def connect_to_peer(peer_ip, remote_port, conn_event):
-    """Function to try connecting to a peer."""
+    """Function to try connecting to a peer with retries."""
     client = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-    try:
-        client.connect((peer_ip, remote_port))
-        print(f"Connected to peer {peer_ip}:{remote_port}")
-        conn_event.set()  # Notify the main thread that connection is established
-        return client
-    except socket.error as e:
-        print(f"Failed to connect to {peer_ip}:{remote_port}: {e}")
-        return None
+    retries = 0
+
+    while retries < MAX_RETRIES and not conn_event.is_set():  # Retry until connected or max retries
+        try:
+            print(f"Trying to connect to {peer_ip}:{remote_port} (attempt {retries + 1})...")
+            client.connect((peer_ip, remote_port))
+            print(f"Connected to peer {peer_ip}:{remote_port}")
+            conn_event.set()  # Notify the main thread that connection is established
+            return client
+        except socket.error as e:
+            print(f"Failed to connect to {peer_ip}:{remote_port}: {e}")
+            retries += 1
+            time.sleep(3)  # Wait before retrying
+    return None
 
 def handle_connection(sock):
     """Handles incoming and outgoing messages."""
@@ -61,10 +69,10 @@ def p2p_chat(peer_ip, local_port, remote_port):
     listener_thread = threading.Thread(target=listen_for_connections, args=(local_port, conn_event), daemon=True)
     listener_thread.start()
 
-    # Try connecting to the peer (client)
+    # Try connecting to the peer (client) with retries
     sock = connect_to_peer(peer_ip, remote_port, conn_event)
 
-    # Wait for a connection to be established
+    # Wait for a connection to be established (either as server or client)
     if not sock:
         print("Waiting for incoming connection...")
         conn_event.wait()  # Wait until the connection is established by either party
