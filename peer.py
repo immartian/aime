@@ -24,6 +24,7 @@ class PeerManager:
         with self.lock:
             if peer_ip in self.peers:
                 self.peers[peer_ip]['status'] = status
+                print(f"Updated status for {peer_ip} to {status}")
     
     def get_peer_status(self, peer_ip):
         """Get the status of a peer."""
@@ -36,7 +37,9 @@ class PeerManager:
         try:
             client.sendto(b'status', (peer_ip, self.status_port))
             data, _ = client.recvfrom(1024)
-            return data.decode('utf-8')
+            status = data.decode('utf-8')
+            self.update_peer_status(peer_ip, status)  # Update status after check
+            return status
         except socket.error as e:
             print(f"Error checking status: {e}")
             return 'unknown'
@@ -48,7 +51,7 @@ class PeerManager:
         while True:
             for peer_ip in list(self.peers):
                 status = self.check_status(peer_ip)
-                self.update_peer_status(peer_ip, status)
+                print(f"Broadcast status check: {peer_ip} is {status}")
             time.sleep(5)  # Status update interval
     
     def start_status_server(self):
@@ -66,11 +69,13 @@ class PeerManager:
 
     def send_message(self, peer_ip, message):
         """Send a message to a peer."""
-        peer_data = self.peers.get(peer_ip)
-        if not peer_data or peer_data['status'] != 'available':
+        # Check the status before sending the message
+        status = self.check_status(peer_ip)
+        if status != 'available':
             print(f"Cannot send message. Peer {peer_ip} is not available.")
             return
         
+        peer_data = self.peers.get(peer_ip)
         chat_port = peer_data['chat_port']
         client = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
         try:
