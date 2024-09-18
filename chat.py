@@ -1,46 +1,38 @@
 import socket
 import threading
 import time
-import random
 
-MAX_RETRIES = 10  # Increased maximum number of retries
-
-def listen_for_connections(local_port, conn_event):
+def listen_for_connections(local_port, conn_event, connection_holder):
     """Function to listen for incoming connections."""
     listener = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-    listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Reuse address
+    listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     listener.bind(('::', local_port))
     listener.listen(1)
     print(f"Listening for incoming connections on port {local_port}...")
 
-    # Accept connection
+    # Accept connection when it arrives
     conn, addr = listener.accept()
     print(f"Connected by {addr}")
+    connection_holder['conn'] = conn
     conn_event.set()  # Notify the main thread that connection is established
-    return conn
+    listener.close()
 
-def connect_to_peer(peer_ip, remote_port, conn_event):
-    """Function to try connecting to a peer with retries."""
-    client = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-    retries = 0
-
-    # Add a random initial delay before starting connection attempts to avoid race condition
-    initial_delay = random.uniform(1, 5)
-    print(f"Initial delay before connection attempts: {initial_delay:.2f} seconds")
-    time.sleep(initial_delay)
-
-    while retries < MAX_RETRIES and not conn_event.is_set():  # Retry until connected or max retries
+def connect_to_peer(peer_ip, remote_port, conn_event, connection_holder):
+    """Function to try connecting to a peer."""
+    while not conn_event.is_set():  # Retry until connected
+        client = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
         try:
-            print(f"Trying to connect to {peer_ip}:{remote_port} (attempt {retries + 1})...")
+            print(f"Attempting to connect to {peer_ip}:{remote_port}...")
             client.connect((peer_ip, remote_port))
             print(f"Connected to peer {peer_ip}:{remote_port}")
-            conn_event.set()  # Notify the main thread that connection is established
-            return client
+            connection_holder['conn'] = client
+            conn_event.set()  # Notify that the connection is established
+            break
         except socket.error as e:
-            print(f"Failed to connect to {peer_ip}:{remote_port}: {e}")
-            retries += 1
-            time.sleep(3)  # Wait before retrying
-    return None
+            print(f"Connection to {peer_ip}:{remote_port} failed: {e}")
+            time.sleep(2)  # Wait and retry if connection fails
+        finally:
+            client.close()
 
 def handle_connection(sock):
     """Handles incoming and outgoing messages."""
@@ -68,27 +60,25 @@ def handle_connection(sock):
             break
 
 def p2p_chat(peer_ip, local_port, remote_port):
-    # Create an event to synchronize connection establishment
+    """Main function to handle peer-to-peer chat."""
+    # Event to signal when a connection is established
     conn_event = threading.Event()
+    connection_holder = {'conn': None}
 
-    # Start the listener thread (server)
-    listener_thread = threading.Thread(target=listen_for_connections, args=(local_port, conn_event), daemon=True)
+    # Start listener thread (server role)
+    listener_thread = threading.Thread(target=listen_for_connections, args=(local_port, conn_event, connection_holder))
     listener_thread.start()
 
-    # Try connecting to the peer (client) with retries
-    sock = connect_to_peer(peer_ip, remote_port, conn_event)
+    # Start connection thread (client role)
+    connect_thread = threading.Thread(target=connect_to_peer, args=(peer_ip, remote_port, conn_event, connection_holder))
+    connect_thread.start()
 
-    # Wait for a connection to be established (either as server or client)
-    if not sock:
-        print("Waiting for incoming connection...")
-        conn_event.wait()  # Wait until the connection is established by either party
+    # Wait for connection to be established (either as server or client)
+    conn_event.wait()
 
-    # If we established a connection first, stop the listener thread and use the client socket
-    if sock:
-        handle_connection(sock)
-    else:
-        listener_thread.join()  # Use the socket accepted by the listener
-
+    # Handle communication once the connection is made
+    sock = connection_holder['conn']
+    handle_connection(sock)
 
 if __name__ == "__main__":
     peer_ip = "201:e8c5:3538:87a3:aa54:7dfb:8008:fb2e"  # Replace with peer's Yggdrasil IP
