@@ -1,9 +1,9 @@
 import socket
 import threading
 import time
+import random
 
-MAX_RETRIES = 10  # Maximum number of retries for connection attempts
-RETRY_DELAY = 5  # Increase delay to 5 seconds
+MAX_RETRIES = 10  # Increased maximum number of retries
 
 def listen_for_connections(local_port, conn_event):
     """Function to listen for incoming connections."""
@@ -24,6 +24,11 @@ def connect_to_peer(peer_ip, remote_port, conn_event):
     client = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
     retries = 0
 
+    # Add a random initial delay before starting connection attempts to avoid race condition
+    initial_delay = random.uniform(1, 5)
+    print(f"Initial delay before connection attempts: {initial_delay:.2f} seconds")
+    time.sleep(initial_delay)
+
     while retries < MAX_RETRIES and not conn_event.is_set():  # Retry until connected or max retries
         try:
             print(f"Trying to connect to {peer_ip}:{remote_port} (attempt {retries + 1})...")
@@ -34,7 +39,7 @@ def connect_to_peer(peer_ip, remote_port, conn_event):
         except socket.error as e:
             print(f"Failed to connect to {peer_ip}:{remote_port}: {e}")
             retries += 1
-            time.sleep(RETRY_DELAY)  # Wait before retrying
+            time.sleep(3)  # Wait before retrying
     return None
 
 def handle_connection(sock):
