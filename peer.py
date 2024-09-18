@@ -3,10 +3,10 @@ import threading
 import time
 
 class PeerManager:
-    def __init__(self, local_port, status_port):
+    def __init__(self, local_port=12345, discovery_port=10799):            
         self.peers = {}  # Dictionary to store peer status and metadata
         self.local_port = local_port
-        self.status_port = status_port
+        self.status_port = discovery_port
         self.lock = threading.Lock()  # To prevent race conditions when updating peer status
         self.continue_chat = True  # Control the continuous chat loop
         self.message_callback = None  # Placeholder for message callback function
