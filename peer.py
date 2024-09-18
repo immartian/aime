@@ -24,7 +24,7 @@ class PeerManager:
         with self.lock:
             if peer_ip in self.peers:
                 self.peers[peer_ip]['status'] = status
-                print(f"Updated status for {peer_ip} to {status}")
+                #print(f"Updated status for {peer_ip} to {status}")
     
     def get_peer_status(self, peer_ip):
         """Get the status of a peer."""
@@ -35,7 +35,8 @@ class PeerManager:
         """Periodically broadcast status updates to all peers."""
         while True:
             for peer_ip in list(self.peers):
-                print(f"Broadcast status check: {peer_ip} is available")
+                #print(f"Broadcast status check: {peer_ip} is available")
+                pass
             time.sleep(5)  # Status update interval
     
     def start_status_server(self):
@@ -57,10 +58,10 @@ class PeerManager:
         chat_port = peer_data['chat_port']
         client = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
         try:
-            print(f"Trying to connect to {peer_ip}:{chat_port}")
+            #print(f"Trying to connect to {peer_ip}:{chat_port}")
             client.connect((peer_ip, chat_port))
             client.send(message.encode('utf-8'))
-            print(f"Message sent to {peer_ip}")
+            #print(f"Message sent to {peer_ip}")
         except socket.error as e:
             print(f"Error sending message to {peer_ip}: {e}")
         finally:
@@ -76,7 +77,7 @@ class PeerManager:
         
         while True:
             conn, addr = server.accept()
-            print(f"Connected by {addr}")
+            #print(f"Connected by {addr}")
             threading.Thread(target=self.handle_incoming_message, args=(conn, addr)).start()
 
     def handle_incoming_message(self, conn, addr):
@@ -86,9 +87,9 @@ class PeerManager:
             try:
                 message = conn.recv(1024).decode('utf-8')
                 if not message:
-                    print("Connection closed.")
+                    #print("Connection closed.")
                     break
-                print(f"Received message: {message}")
+                #print(f"Received message: {message}")
                 
                 # If there's a callback, invoke it with the received message
                 if self.message_callback:
