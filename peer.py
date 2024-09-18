@@ -31,27 +31,11 @@ class PeerManager:
         with self.lock:
             return self.peers.get(peer_ip, {}).get('status', 'unknown')
 
-    def check_status(self, peer_ip):
-        """Ping the peer to check if it is available or busy."""
-        client = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)  # Using UDP for status check
-        try:
-            client.sendto(b'status', (peer_ip, self.status_port))
-            data, _ = client.recvfrom(1024)
-            status = data.decode('utf-8')
-            self.update_peer_status(peer_ip, status)  # Update status after check
-            return status
-        except socket.error as e:
-            print(f"Error checking status: {e}")
-            return 'unknown'
-        finally:
-            client.close()
-
     def broadcast_status_updates(self):
         """Periodically broadcast status updates to all peers."""
         while True:
             for peer_ip in list(self.peers):
-                status = self.check_status(peer_ip)
-                print(f"Broadcast status check: {peer_ip} is {status}")
+                print(f"Broadcast status check: {peer_ip} is available")
             time.sleep(5)  # Status update interval
     
     def start_status_server(self):
@@ -69,16 +53,11 @@ class PeerManager:
 
     def send_message(self, peer_ip, message):
         """Send a message to a peer."""
-        # Check the status before sending the message
-        status = self.check_status(peer_ip)
-        if status != 'available':
-            print(f"Cannot send message. Peer {peer_ip} is not available.")
-            return
-        
         peer_data = self.peers.get(peer_ip)
         chat_port = peer_data['chat_port']
         client = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
         try:
+            print(f"Trying to connect to {peer_ip}:{chat_port}")
             client.connect((peer_ip, chat_port))
             client.send(message.encode('utf-8'))
             print(f"Message sent to {peer_ip}")
@@ -104,15 +83,19 @@ class PeerManager:
         """Handle incoming messages and keep peer available after disconnection."""
         peer_ip = addr[0]  # Extract peer IP
         while True:
-            message = conn.recv(1024).decode('utf-8')
-            if not message:
-                print("Connection closed.")
+            try:
+                message = conn.recv(1024).decode('utf-8')
+                if not message:
+                    print("Connection closed.")
+                    break
+                print(f"Received message: {message}")
+                
+                # If there's a callback, invoke it with the received message
+                if self.message_callback:
+                    self.message_callback(message)
+            except socket.error as e:
+                print(f"Error receiving message: {e}")
                 break
-            print(f"Received message: {message}")
-            
-            # If there's a callback, invoke it with the received message
-            if self.message_callback:
-                self.message_callback(message)
         
         conn.close()
         
